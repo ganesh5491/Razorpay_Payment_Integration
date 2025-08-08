@@ -4,7 +4,9 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
-import Checkout from "@/pages/checkout";
+import Products from "@/pages/products";
+import Cart from "@/pages/cart";
+import Shipping from "@/pages/shipping";
 import PaymentProcessing from "@/pages/payment-processing";
 import UPIPayment from "@/pages/upi-payment";
 import QRPayment from "@/pages/qr-payment";
@@ -14,8 +16,9 @@ import PaymentSuccess from "@/pages/payment-success";
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Checkout} />
-      <Route path="/checkout" component={Checkout} />
+      <Route path="/" component={Products} />
+      <Route path="/cart" component={Cart} />
+      <Route path="/shipping" component={Shipping} />
       <Route path="/payment-processing" component={PaymentProcessing} />
       <Route path="/upi-payment" component={UPIPayment} />
       <Route path="/qr-payment" component={QRPayment} />
