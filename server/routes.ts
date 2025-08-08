@@ -1,3 +1,6 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
@@ -9,6 +12,7 @@ import crypto from "crypto";
 // Razorpay configuration
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID!;
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET!;
+console.log("RAZORPAY_KEY_ID:", RAZORPAY_KEY_ID);
 
 // Initialize Razorpay instance
 const razorpay = new Razorpay({
@@ -25,7 +29,7 @@ async function createRazorpayOrder(amount: number, currency: string = "INR") {
       receipt: `receipt_${Date.now()}`,
       payment_capture: 1
     };
-    
+
     const order = await razorpay.orders.create(options);
     return order;
   } catch (error) {
@@ -39,16 +43,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/payment/create-order", async (req, res) => {
     try {
       const validatedData = createPaymentOrderSchema.parse(req.body);
-      
+
       const { paymentMethod, billingAddress, items, subtotal, tax } = validatedData;
-      
-      // Calculate COD fee if applicable
+
       const codFee = paymentMethod === "cod" ? 20 : 0;
       const total = subtotal + tax + codFee;
-      
-      // Create order in storage
+
       const order = await storage.createOrder({
-        userId: null, // In a real app, get from session
+        userId: null,
         status: "pending",
         paymentMethod,
         paymentStatus: paymentMethod === "cod" ? "pending" : "pending",
@@ -59,7 +61,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         billingAddress: JSON.stringify(billingAddress),
       });
 
-      // Create order items
       for (const item of items) {
         await storage.createOrderItem({
           orderId: order.id,
@@ -71,12 +72,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // If payment method is UPI or Card, create Razorpay order
       let razorpayOrder = null;
       if (paymentMethod === "upi" || paymentMethod === "card") {
         razorpayOrder = await createRazorpayOrder(total);
-        
-        // Update order with Razorpay order ID
+
         await storage.updateOrder(order.id, {
           razorpayOrderId: razorpayOrder.id,
         });
@@ -111,28 +110,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Verify payment (for UPI/Card payments)
+  // Verify payment
   app.post("/api/payment/verify", async (req, res) => {
     try {
       const { orderId, razorpayPaymentId, razorpaySignature, razorpayOrderId } = req.body;
-      
-      // Verify the signature using Razorpay's recommended method
+
       const expectedSignature = crypto
         .createHmac('sha256', RAZORPAY_KEY_SECRET)
         .update(razorpayOrderId + '|' + razorpayPaymentId)
         .digest('hex');
-      
+
       if (expectedSignature !== razorpaySignature) {
         return res.status(400).json({
           success: false,
           message: "Invalid payment signature",
         });
       }
-      
-      // Fetch payment details from Razorpay to double-check
+
       try {
         const payment = await razorpay.payments.fetch(razorpayPaymentId);
-        
+
         if (payment.status !== 'captured' && payment.status !== 'authorized') {
           return res.status(400).json({
             success: false,
@@ -146,8 +143,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: "Could not verify payment with Razorpay",
         });
       }
-      
-      // Update order status if payment is verified
+
       const order = await storage.updateOrder(orderId, {
         paymentStatus: "completed",
         status: "completed",
@@ -175,11 +171,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Confirm COD order
+  // Confirm COD
   app.post("/api/payment/confirm-cod", async (req, res) => {
     try {
       const { orderId } = req.body;
-      
+
       const order = await storage.updateOrder(orderId, {
         paymentStatus: "pending",
         status: "confirmed",
@@ -206,12 +202,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get order details
+  // Get order
   app.get("/api/orders/:id", async (req, res) => {
     try {
       const { id } = req.params;
       const order = await storage.getOrder(id);
-      
+
       if (!order) {
         return res.status(404).json({
           success: false,
