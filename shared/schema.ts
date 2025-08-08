@@ -13,7 +13,7 @@ export const orders = pgTable("orders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id),
   status: text("status").notNull().default("pending"), // pending, completed, failed, cancelled
-  paymentMethod: text("payment_method").notNull(), // upi, card, cod
+  paymentMethod: text("payment_method").notNull(), // upi, qr, card, cod
   paymentStatus: text("payment_status").notNull().default("pending"), // pending, completed, failed
   razorpayOrderId: text("razorpay_order_id"),
   razorpayPaymentId: text("razorpay_payment_id"),
@@ -62,7 +62,7 @@ export const billingAddressSchema = z.object({
 });
 
 export const createPaymentOrderSchema = z.object({
-  paymentMethod: z.enum(["upi", "card", "cod"]),
+  paymentMethod: z.enum(["upi", "qr", "card", "cod"]),
   billingAddress: billingAddressSchema,
   items: z.array(z.object({
     name: z.string(),

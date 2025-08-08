@@ -2,8 +2,8 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface PaymentMethodSelectorProps {
-  selectedMethod: "upi" | "card" | "cod" | null;
-  onMethodChange: (method: "upi" | "card" | "cod") => void;
+  selectedMethod: "upi" | "qr" | "card" | "cod" | null;
+  onMethodChange: (method: "upi" | "qr" | "card" | "cod") => void;
 }
 
 export function PaymentMethodSelector({ selectedMethod, onMethodChange }: PaymentMethodSelectorProps) {
@@ -11,7 +11,7 @@ export function PaymentMethodSelector({ selectedMethod, onMethodChange }: Paymen
     <div className="space-y-4 mb-8">
       <RadioGroup
         value={selectedMethod || ""}
-        onValueChange={(value) => onMethodChange(value as "upi" | "card" | "cod")}
+        onValueChange={(value) => onMethodChange(value as "upi" | "qr" | "card" | "cod")}
         className="space-y-4"
       >
         {/* UPI Payment Option */}
@@ -25,11 +25,9 @@ export function PaymentMethodSelector({ selectedMethod, onMethodChange }: Paymen
             <RadioGroupItem value="upi" id="upi" className="mr-4" />
             <div className="flex-1">
               <div className="flex items-center">
-                <img 
-                  src="https://images.unsplash.com/photo-1563013544-824ae1b704d3?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=60" 
-                  alt="UPI Payment" 
-                  className="w-12 h-8 object-contain mr-3" 
-                />
+                <div className="w-12 h-8 bg-purple-100 rounded flex items-center justify-center mr-3">
+                  <span className="text-purple-600 font-bold text-xs">UPI</span>
+                </div>
                 <div>
                   <p className="font-medium text-gray-900">UPI</p>
                   <p className="text-sm text-gray-500">Pay using any UPI app</p>
@@ -37,6 +35,30 @@ export function PaymentMethodSelector({ selectedMethod, onMethodChange }: Paymen
               </div>
             </div>
             <div className="text-sm text-green-600 font-medium">Instant</div>
+          </Label>
+        </div>
+
+        {/* QR Code Payment Option */}
+        <div className="relative">
+          <Label
+            htmlFor="qr"
+            className={`flex items-center p-4 border-2 rounded-lg cursor-pointer hover:border-primary transition-colors ${
+              selectedMethod === "qr" ? "border-primary bg-blue-50" : "border-gray-200"
+            }`}
+          >
+            <RadioGroupItem value="qr" id="qr" className="mr-4" />
+            <div className="flex-1">
+              <div className="flex items-center">
+                <div className="w-12 h-8 bg-indigo-100 rounded flex items-center justify-center mr-3">
+                  <i className="fas fa-qrcode text-indigo-600 text-lg"></i>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">QR Code</p>
+                  <p className="text-sm text-gray-500">Scan and pay with any app</p>
+                </div>
+              </div>
+            </div>
+            <div className="text-sm text-green-600 font-medium">Quick</div>
           </Label>
         </div>
 

@@ -47,7 +47,7 @@ const mockOrderItems: OrderItem[] = [
 
 
 export default function Checkout() {
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<"upi" | "card" | "cod" | null>(null);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<"upi" | "qr" | "card" | "cod" | null>(null);
   const [billingAddress, setBillingAddress] = useState<BillingAddressData>({
     firstName: "",
     lastName: "",
@@ -85,7 +85,11 @@ export default function Checkout() {
         // Redirect based on payment method
         if (selectedPaymentMethod === "cod") {
           setLocation('/cod-confirmation');
-        } else if (selectedPaymentMethod === "upi" || selectedPaymentMethod === "card") {
+        } else if (selectedPaymentMethod === "upi") {
+          setLocation('/upi-payment');
+        } else if (selectedPaymentMethod === "qr") {
+          setLocation('/qr-payment');
+        } else if (selectedPaymentMethod === "card") {
           setLocation('/payment-processing');
         }
       } else {
