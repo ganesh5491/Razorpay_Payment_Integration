@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useLocation } from "wouter";
 import { PaymentMethodSelector } from "@/components/payment/payment-method-selector";
 import { OrderSummary } from "@/components/payment/order-summary";
 import { BillingAddress } from "@/components/payment/billing-address";
@@ -44,11 +45,6 @@ const mockOrderItems: OrderItem[] = [
   },
 ];
 
-declare global {
-  interface Window {
-    Razorpay: any;
-  }
-}
 
 export default function Checkout() {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<"upi" | "card" | "cod" | null>(null);
@@ -59,9 +55,7 @@ export default function Checkout() {
     city: "",
     pincode: "",
   });
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [showCODModal, setShowCODModal] = useState(false);
-  const [orderId, setOrderId] = useState<string>("");
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
 
   const subtotal = mockOrderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -76,12 +70,23 @@ export default function Checkout() {
     },
     onSuccess: (data) => {
       if (data.success) {
-        setOrderId(data.orderId);
+        // Store payment data in sessionStorage for the payment pages
+        const paymentData = {
+          orderId: data.orderId,
+          total: data.total,
+          paymentMethod: selectedPaymentMethod,
+          billingAddress,
+          subtotal,
+          tax,
+          razorpayOrder: data.razorpayOrder
+        };
+        sessionStorage.setItem('paymentOrderData', JSON.stringify(paymentData));
         
+        // Redirect based on payment method
         if (selectedPaymentMethod === "cod") {
-          setShowCODModal(true);
-        } else if (data.razorpayOrder) {
-          openRazorpayCheckout(data.razorpayOrder, data.orderId);
+          setLocation('/cod-confirmation');
+        } else if (selectedPaymentMethod === "upi" || selectedPaymentMethod === "card") {
+          setLocation('/payment-processing');
         }
       } else {
         toast({
@@ -100,30 +105,6 @@ export default function Checkout() {
     },
   });
 
-  const confirmCODMutation = useMutation({
-    mutationFn: async (orderId: string) => {
-      const response = await apiRequest("POST", "/api/payment/confirm-cod", { orderId });
-      return response.json();
-    },
-    onSuccess: (data) => {
-      if (data.success) {
-        setShowCODModal(false);
-        setShowSuccessModal(true);
-      }
-    },
-  });
-
-  const verifyPaymentMutation = useMutation({
-    mutationFn: async (paymentData: any) => {
-      const response = await apiRequest("POST", "/api/payment/verify", paymentData);
-      return response.json();
-    },
-    onSuccess: (data) => {
-      if (data.success) {
-        setShowSuccessModal(true);
-      }
-    },
-  });
 
   const validateForm = () => {
     if (!selectedPaymentMethod) {
@@ -173,46 +154,6 @@ export default function Checkout() {
     createOrderMutation.mutate(orderData);
   };
 
-  const openRazorpayCheckout = (razorpayOrder: any, orderId: string) => {
-    const options = {
-      key: razorpayOrder.key,
-      amount: razorpayOrder.amount,
-      currency: razorpayOrder.currency,
-      name: "Payment Integration",
-      description: "Test Transaction",
-      order_id: razorpayOrder.id,
-      handler: function (response: any) {
-        verifyPaymentMutation.mutate({
-          orderId,
-          razorpayPaymentId: response.razorpay_payment_id,
-          razorpaySignature: response.razorpay_signature,
-        });
-      },
-      prefill: {
-        name: `${billingAddress.firstName} ${billingAddress.lastName}`,
-        email: "customer@example.com",
-        contact: "9999999999",
-      },
-      theme: {
-        color: "#3B82F6",
-      },
-    };
-
-    if (window.Razorpay) {
-      const rzp = new window.Razorpay(options);
-      rzp.open();
-    } else {
-      toast({
-        title: "Error",
-        description: "Payment gateway not available. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleConfirmCOD = () => {
-    confirmCODMutation.mutate(orderId);
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -302,64 +243,6 @@ export default function Checkout() {
         </div>
       </div>
 
-      {/* COD Confirmation Modal */}
-      {showCODModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <Card className="max-w-md w-full">
-            <CardContent className="p-6 text-center">
-              <div className="w-16 h-16 bg-amber-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                <i className="fas fa-money-bill-wave text-white text-2xl"></i>
-              </div>
-              <h4 className="text-lg font-medium text-gray-900 mb-2">Cash on Delivery</h4>
-              <p className="text-gray-600 mb-4">Your order will be confirmed and you can pay when it's delivered to your address.</p>
-              <p className="text-2xl font-bold text-gray-900 mb-2">₹{total.toLocaleString()}</p>
-              <p className="text-sm text-gray-500 mb-6">(Including ₹20 COD fee)</p>
-              
-              <div className="space-y-3">
-                <Button 
-                  onClick={handleConfirmCOD}
-                  disabled={confirmCODMutation.isPending}
-                  className="w-full bg-amber-500 text-white hover:bg-amber-600"
-                >
-                  {confirmCODMutation.isPending ? "Confirming..." : "Confirm Order"}
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setShowCODModal(false)}
-                  className="w-full"
-                >
-                  Back to Payment Options
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Success Modal */}
-      {showSuccessModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <Card className="max-w-md w-full">
-            <CardContent className="p-6 text-center">
-              <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Check className="h-8 w-8 text-white" />
-              </div>
-              <h4 className="text-lg font-medium text-gray-900 mb-2">Order Confirmed!</h4>
-              <p className="text-gray-600 mb-4">Thank you for your purchase. Your order has been successfully placed.</p>
-              <p className="text-sm text-gray-500 mb-6">Order ID: <span className="font-medium">#{orderId}</span></p>
-              
-              <div className="space-y-3">
-                <Button className="w-full">
-                  Track Order
-                </Button>
-                <Button variant="outline" className="w-full">
-                  Continue Shopping
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
     </div>
   );
 }
