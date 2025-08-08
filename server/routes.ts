@@ -3,32 +3,35 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { createPaymentOrderSchema } from "@shared/schema";
 import { z } from "zod";
+import Razorpay from "razorpay";
+import crypto from "crypto";
 
 // Razorpay configuration
-const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_TEST_KEY_ID || "rzp_test_1234567890";
-const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_TEST_KEY_SECRET || "test_secret_key";
+const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID!;
+const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET!;
 
-interface RazorpayOrder {
-  id: string;
-  amount: number;
-  currency: string;
-  status: string;
-}
+// Initialize Razorpay instance
+const razorpay = new Razorpay({
+  key_id: RAZORPAY_KEY_ID,
+  key_secret: RAZORPAY_KEY_SECRET,
+});
 
-// Mock Razorpay API for development
-async function createRazorpayOrder(amount: number, currency: string = "INR"): Promise<RazorpayOrder> {
-  // In production, use actual Razorpay SDK:
-  // const Razorpay = require('razorpay');
-  // const rzp = new Razorpay({ key_id: RAZORPAY_KEY_ID, key_secret: RAZORPAY_KEY_SECRET });
-  // return await rzp.orders.create({ amount: amount * 100, currency, receipt: `receipt_${Date.now()}` });
-  
-  // For development, return mock order
-  return {
-    id: `order_${Date.now()}`,
-    amount: amount * 100, // Razorpay expects amount in paisa
-    currency,
-    status: "created"
-  };
+// Create Razorpay order using the official SDK
+async function createRazorpayOrder(amount: number, currency: string = "INR") {
+  try {
+    const options = {
+      amount: Math.round(amount * 100), // Razorpay expects amount in paisa
+      currency,
+      receipt: `receipt_${Date.now()}`,
+      payment_capture: 1
+    };
+    
+    const order = await razorpay.orders.create(options);
+    return order;
+  } catch (error) {
+    console.error('Razorpay order creation error:', error);
+    throw error;
+  }
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -111,18 +114,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Verify payment (for UPI/Card payments)
   app.post("/api/payment/verify", async (req, res) => {
     try {
-      const { orderId, razorpayPaymentId, razorpaySignature } = req.body;
+      const { orderId, razorpayPaymentId, razorpaySignature, razorpayOrderId } = req.body;
       
-      // In production, verify the signature using Razorpay SDK
-      // const crypto = require('crypto');
-      // const expectedSignature = crypto.createHmac('sha256', RAZORPAY_KEY_SECRET)
-      //   .update(razorpayOrderId + '|' + razorpayPaymentId)
-      //   .digest('hex');
-      // if (expectedSignature !== razorpaySignature) {
-      //   throw new Error('Invalid signature');
-      // }
+      // Verify the signature using Razorpay's recommended method
+      const expectedSignature = crypto
+        .createHmac('sha256', RAZORPAY_KEY_SECRET)
+        .update(razorpayOrderId + '|' + razorpayPaymentId)
+        .digest('hex');
       
-      // For development, assume payment is successful
+      if (expectedSignature !== razorpaySignature) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid payment signature",
+        });
+      }
+      
+      // Fetch payment details from Razorpay to double-check
+      try {
+        const payment = await razorpay.payments.fetch(razorpayPaymentId);
+        
+        if (payment.status !== 'captured' && payment.status !== 'authorized') {
+          return res.status(400).json({
+            success: false,
+            message: "Payment not successful",
+          });
+        }
+      } catch (paymentError) {
+        console.error("Error fetching payment details:", paymentError);
+        return res.status(500).json({
+          success: false,
+          message: "Could not verify payment with Razorpay",
+        });
+      }
+      
+      // Update order status if payment is verified
       const order = await storage.updateOrder(orderId, {
         paymentStatus: "completed",
         status: "completed",

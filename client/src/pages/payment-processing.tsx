@@ -80,6 +80,7 @@ export default function PaymentProcessing() {
           orderId,
           razorpayPaymentId: response.razorpay_payment_id,
           razorpaySignature: response.razorpay_signature,
+          razorpayOrderId: razorpayOrder.id,
         });
       },
       prefill: {
