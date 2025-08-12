@@ -9,10 +9,12 @@ import { z } from "zod";
 import Razorpay from "razorpay";
 import crypto from "crypto";
 
+
 // Razorpay configuration
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID!;
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET!;
 console.log("RAZORPAY_KEY_ID:", RAZORPAY_KEY_ID);
+
 
 // Initialize Razorpay instance
 const razorpay = new Razorpay({
@@ -73,7 +75,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       let razorpayOrder = null;
-      if (paymentMethod === "upi" || paymentMethod === "card") {
+      if (paymentMethod === "upi" || paymentMethod === "card" || paymentMethod === "qr" || paymentMethod === "apps") {
         razorpayOrder = await createRazorpayOrder(total);
 
         await storage.updateOrder(order.id, {

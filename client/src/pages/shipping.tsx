@@ -103,7 +103,7 @@ export default function Shipping() {
         } else if (selectedPaymentMethod === "qr") {
           setLocation('/qr-payment');
         } else if (selectedPaymentMethod === "card") {
-          setLocation('/payment-processing');
+          setLocation('/cardPayment');
         }
       } else {
         toast({

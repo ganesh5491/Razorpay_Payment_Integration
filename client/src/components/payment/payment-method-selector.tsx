@@ -2,8 +2,8 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface PaymentMethodSelectorProps {
-  selectedMethod: "upi" | "qr" | "card" | "cod" | null;
-  onMethodChange: (method: "upi" | "qr" | "card" | "cod") => void;
+  selectedMethod: "upi" | "qr" | "card" | "cod" | "apps" | null;
+  onMethodChange: (method: "upi" | "qr" | "card" | "cod" | "apps") => void;
 }
 
 export function PaymentMethodSelector({ selectedMethod, onMethodChange }: PaymentMethodSelectorProps) {
@@ -11,7 +11,7 @@ export function PaymentMethodSelector({ selectedMethod, onMethodChange }: Paymen
     <div className="space-y-4 mb-8">
       <RadioGroup
         value={selectedMethod || ""}
-        onValueChange={(value) => onMethodChange(value as "upi" | "qr" | "card" | "cod")}
+        onValueChange={(value) => onMethodChange(value as "upi" | "qr" | "card" | "cod" | "apps")}
         className="space-y-4"
       >
         {/* UPI Payment Option */}
@@ -37,6 +37,32 @@ export function PaymentMethodSelector({ selectedMethod, onMethodChange }: Paymen
             <div className="text-sm text-green-600 font-medium">Instant</div>
           </Label>
         </div>
+
+        {/* Payment Apps Option */}
+        {/* <div className="relative">
+          <Label
+            htmlFor="apps"
+            className={`flex items-center p-4 border-2 rounded-lg cursor-pointer hover:border-primary transition-colors ${
+              selectedMethod === "apps" ? "border-primary bg-blue-50" : "border-gray-200"
+            }`}
+          >
+            <RadioGroupItem value="apps" id="apps" className="mr-4" />
+            <div className="flex-1">
+              <div className="flex items-center">
+                <div className="flex space-x-1 mr-3">
+                  <div className="w-6 h-6 bg-purple-600 text-white rounded text-xs flex items-center justify-center font-bold">P</div>
+                  <div className="w-6 h-6 bg-blue-500 text-white rounded text-xs flex items-center justify-center font-bold">G</div>
+                  <div className="w-6 h-6 bg-blue-600 text-white rounded text-xs flex items-center justify-center font-bold">₹</div>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">Payment Apps</p>
+                  <p className="text-sm text-gray-500">PhonePe, Google Pay, Paytm & more</p>
+                </div>
+              </div>
+            </div>
+            <div className="text-sm text-green-600 font-medium">Popular</div>
+          </Label>
+        </div> */}
 
         {/* QR Code Payment Option */}
         <div className="relative">

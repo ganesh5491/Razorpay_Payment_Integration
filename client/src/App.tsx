@@ -10,8 +10,10 @@ import Shipping from "@/pages/shipping";
 import PaymentProcessing from "@/pages/payment-processing";
 import UPIPayment from "@/pages/upi-payment";
 import QRPayment from "@/pages/qr-payment";
+import PaymentApps from "@/pages/payment-apps";
 import CODConfirmation from "@/pages/cod-confirmation";
 import PaymentSuccess from "@/pages/payment-success";
+import CardPayment from "@/pages/card-payment"
 
 function Router() {
   return (
@@ -22,9 +24,11 @@ function Router() {
       <Route path="/payment-processing" component={PaymentProcessing} />
       <Route path="/upi-payment" component={UPIPayment} />
       <Route path="/qr-payment" component={QRPayment} />
+      <Route path="/payment-apps" component={PaymentApps} />
       <Route path="/cod-confirmation" component={CODConfirmation} />
       <Route path="/payment-success" component={PaymentSuccess} />
-      <Route component={NotFound} />
+      <Route path="/card-payment" component={CardPayment} />
+      {/* <Route component={NotFound} /> */}
     </Switch>
   );
 }

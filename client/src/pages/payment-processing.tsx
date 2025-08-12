@@ -85,8 +85,8 @@ export default function PaymentProcessing() {
       },
       prefill: {
         name: `${billingAddress.firstName} ${billingAddress.lastName}`,
-        email: "customer@example.com",
-        contact: "9999999999",
+        email: "ganeshkale030303@gmail.com",
+        contact: "9028441589",
       },
       theme: {
         color: "#3B82F6",

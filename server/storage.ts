@@ -16,6 +16,9 @@ export interface IStorage {
 }
 
 export class MemStorage implements IStorage {
+  runTransaction(arg0: (tx: any) => Promise<any>) {
+    throw new Error("Method not implemented.");
+  }
   private users: Map<string, User>;
   private orders: Map<string, Order>;
   private orderItems: Map<string, OrderItem>;

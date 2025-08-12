@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
@@ -5,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { Loader2, QrCode, ArrowLeft, Smartphone } from "lucide-react";
+import { Loader2, QrCode, ArrowLeft, Smartphone, CheckCircle, Timer } from "lucide-react";
+import QRCodeLib from 'qrcode';
 
 declare global {
   interface Window {
@@ -17,10 +19,15 @@ export default function QRPayment() {
   const [, setLocation] = useLocation();
   const [paymentData, setPaymentData] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(true);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
+  const [paymentStatus, setPaymentStatus] = useState<"pending" | "processing" | "completed">("pending");
+  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes
   const { toast } = useToast();
 
+  // Replace with your actual UPI ID
+  const MERCHANT_UPI_ID = "ganeshrk123@ibl";
+
   useEffect(() => {
-    // Get payment data from sessionStorage
     const storedData = sessionStorage.getItem('paymentOrderData');
     if (!storedData) {
       toast({
@@ -34,14 +41,88 @@ export default function QRPayment() {
 
     const data = JSON.parse(storedData);
     setPaymentData(data);
-    
-    // Auto-initiate QR payment after component mounts
-    if (data.razorpayOrder) {
-      setTimeout(() => {
-        openRazorpayQRCheckout(data.razorpayOrder, data.orderId, data.billingAddress);
-      }, 1000);
-    }
+    generateQRCode(data);
   }, [setLocation, toast]);
+
+  // Timer countdown
+  useEffect(() => {
+    if (timeLeft > 0 && paymentStatus === "pending") {
+      const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
+      return () => clearTimeout(timer);
+    } else if (timeLeft === 0) {
+      toast({
+        title: "Session Expired",
+        description: "Payment session has expired. Please try again.",
+        variant: "destructive",
+      });
+      setLocation('/checkout');
+    }
+  }, [timeLeft, paymentStatus, toast, setLocation]);
+
+  const generateQRCode = async (data: any) => {
+    try {
+      setIsProcessing(true);
+      const amount = data.total;
+      const transactionNote = `Payment for Order ${data.orderId}`;
+      
+      // Create UPI payment URL with your merchant UPI ID
+      const upiUrl = `upi://pay?pa=${MERCHANT_UPI_ID}&pn=Your%20Store&am=${amount}&tn=${encodeURIComponent(transactionNote)}&cu=INR`;
+      
+      // Generate QR code
+      const qrDataUrl = await QRCodeLib.toDataURL(upiUrl, {
+        width: 300,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+      
+      setQrCodeUrl(qrDataUrl);
+      setIsProcessing(false);
+      
+      // Start checking payment status
+      startPaymentStatusCheck(data.orderId);
+    } catch (error) {
+      console.error('Error generating QR code:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate QR code. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const startPaymentStatusCheck = (orderId: string) => {
+    const checkInterval = setInterval(async () => {
+      try {
+        const response = await apiRequest("GET", `/api/orders/${orderId}/status`);
+        const result = await response.json();
+        
+        if (result.success && result.order.paymentStatus === "completed") {
+          setPaymentStatus("completed");
+          clearInterval(checkInterval);
+          
+          toast({
+            title: "Payment Successful!",
+            description: "Your payment has been completed successfully.",
+          });
+          
+          setTimeout(() => {
+            sessionStorage.removeItem('paymentOrderData');
+            setLocation(`/payment-success?orderId=${orderId}`);
+          }, 2000);
+        }
+      } catch (error) {
+        console.error('Error checking payment status:', error);
+      }
+    }, 3000); // Check every 3 seconds
+
+    // Clear interval after 5 minutes
+    setTimeout(() => {
+      clearInterval(checkInterval);
+    }, 300000);
+  };
 
   const verifyPaymentMutation = useMutation({
     mutationFn: async (paymentData: any) => {
@@ -50,9 +131,8 @@ export default function QRPayment() {
     },
     onSuccess: (data) => {
       if (data.success) {
-        // Clear payment data
+        setPaymentStatus("completed");
         sessionStorage.removeItem('paymentOrderData');
-        // Navigate to success page
         setLocation(`/payment-success?orderId=${paymentData.orderId}`);
       }
     },
@@ -65,67 +145,11 @@ export default function QRPayment() {
     }
   });
 
-  const openRazorpayQRCheckout = (razorpayOrder: any, orderId: string, billingAddress: any) => {
-    setIsProcessing(false);
-    
-    const options = {
-      key: razorpayOrder.key,
-      amount: razorpayOrder.amount,
-      currency: razorpayOrder.currency,
-      name: "QR Code Payment",
-      description: "Scan QR Code to Pay",
-      order_id: razorpayOrder.id,
-      method: {
-        upi: true,
-        card: false,
-        netbanking: false,
-        wallet: false,
-        emi: false
-      },
-      handler: function (response: any) {
-        verifyPaymentMutation.mutate({
-          orderId,
-          razorpayPaymentId: response.razorpay_payment_id,
-          razorpaySignature: response.razorpay_signature,
-          razorpayOrderId: razorpayOrder.id,
-        });
-      },
-      prefill: {
-        name: `${billingAddress.firstName} ${billingAddress.lastName}`,
-        email: "customer@example.com",
-        contact: "9999999999",
-      },
-      theme: {
-        color: "#6366F1",
-      },
-      modal: {
-        ondismiss: function() {
-          toast({
-            title: "Payment Cancelled",
-            description: "You cancelled the QR payment process.",
-            variant: "destructive",
-          });
-          setLocation('/checkout');
-        }
-      }
-    };
-
-    if (window.Razorpay) {
-      const rzp = new window.Razorpay(options);
-      rzp.open();
-    } else {
-      toast({
-        title: "Error",
-        description: "Payment gateway not available. Please try again.",
-        variant: "destructive",
-      });
-      setLocation('/checkout');
-    }
-  };
-
   const handleRetryPayment = () => {
-    if (paymentData?.razorpayOrder) {
-      openRazorpayQRCheckout(paymentData.razorpayOrder, paymentData.orderId, paymentData.billingAddress);
+    if (paymentData) {
+      generateQRCode(paymentData);
+      setTimeLeft(300); // Reset timer
+      setPaymentStatus("pending");
     }
   };
 
@@ -148,7 +172,6 @@ export default function QRPayment() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
@@ -166,7 +189,6 @@ export default function QRPayment() {
         </div>
       </header>
 
-      {/* Main Content */}
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <Card className="shadow-sm border-gray-200">
           <CardContent className="p-8 text-center">
@@ -188,18 +210,60 @@ export default function QRPayment() {
                   <QrCode className="h-10 w-10 text-white" />
                 </div>
                 <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-                  QR Code Payment
+                  Pay via UPI QR Code
                 </h2>
                 <p className="text-gray-600 mb-6">
-                  Scan the QR code using any payment app to complete your transaction
+                  Scan the QR code to pay ₹{paymentData.total?.toLocaleString()} to our UPI ID
                 </p>
+                
                 <div className="bg-indigo-50 rounded-lg p-4 mb-6">
                   <p className="text-lg font-semibold text-gray-900">
-                    Amount to Pay: ₹{paymentData.total?.toLocaleString()}
+                    Amount: ₹{paymentData.total?.toLocaleString()}
+                  </p>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Merchant UPI ID: {MERCHANT_UPI_ID}
                   </p>
                 </div>
-                
-                {/* QR Code Instructions */}
+
+                {/* QR Code Display */}
+                <div className="bg-white p-6 rounded-lg border-2 border-gray-200 shadow-sm mb-6">
+                  <img 
+                    src={qrCodeUrl} 
+                    alt="Payment QR Code" 
+                    className="w-64 h-64 mx-auto"
+                  />
+                </div>
+
+                {/* Payment Status */}
+                <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                  <div className="flex items-center justify-center space-x-3 mb-3">
+                    {paymentStatus === "pending" && (
+                      <>
+                        <div className="w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></div>
+                        <span className="text-sm text-gray-700">Waiting for payment...</span>
+                      </>
+                    )}
+                    {paymentStatus === "processing" && (
+                      <>
+                        <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
+                        <span className="text-sm text-gray-700">Processing payment...</span>
+                      </>
+                    )}
+                    {paymentStatus === "completed" && (
+                      <>
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <span className="text-sm text-green-700">Payment successful!</span>
+                      </>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center justify-center text-sm text-gray-600">
+                    <Timer className="h-4 w-4 mr-1" />
+                    <span>Session expires in: {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}</span>
+                  </div>
+                </div>
+
+                {/* Instructions */}
                 <div className="bg-gray-50 rounded-lg p-4 mb-6">
                   <h3 className="font-semibold text-gray-900 mb-3 flex items-center justify-center">
                     <Smartphone className="h-5 w-5 mr-2" />
@@ -208,15 +272,15 @@ export default function QRPayment() {
                   <div className="text-sm text-gray-600 space-y-2">
                     <div className="flex items-start">
                       <div className="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-semibold text-xs mr-3 mt-0.5">1</div>
-                      <div>Open any payment app (Google Pay, PhonePe, Paytm, etc.)</div>
+                      <div>Open any UPI app (Google Pay, PhonePe, Paytm, etc.)</div>
                     </div>
                     <div className="flex items-start">
                       <div className="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-semibold text-xs mr-3 mt-0.5">2</div>
-                      <div>Tap on "Scan QR Code" or camera icon</div>
+                      <div>Tap on "Scan QR Code" in your app</div>
                     </div>
                     <div className="flex items-start">
                       <div className="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-semibold text-xs mr-3 mt-0.5">3</div>
-                      <div>Point your camera at the QR code that appears</div>
+                      <div>Point your camera at the QR code above</div>
                     </div>
                     <div className="flex items-start">
                       <div className="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-semibold text-xs mr-3 mt-0.5">4</div>
@@ -227,24 +291,22 @@ export default function QRPayment() {
               </>
             )}
 
-            {!isProcessing && (
-              <div className="space-y-3">
-                <Button 
-                  onClick={handleRetryPayment}
-                  disabled={verifyPaymentMutation.isPending}
-                  className="w-full bg-indigo-600 text-white hover:bg-indigo-700"
-                >
-                  {verifyPaymentMutation.isPending ? "Processing..." : "Show QR Code"}
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={goBackToCheckout}
-                  className="w-full"
-                >
-                  Back to Checkout
-                </Button>
-              </div>
-            )}
+            <div className="space-y-3">
+              <Button 
+                onClick={handleRetryPayment}
+                disabled={paymentStatus === "completed" || isProcessing}
+                className="w-full bg-indigo-600 text-white hover:bg-indigo-700"
+              >
+                {isProcessing ? "Generating..." : "Refresh QR Code"}
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={goBackToCheckout}
+                className="w-full"
+              >
+                Back to Checkout
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

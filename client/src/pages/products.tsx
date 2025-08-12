@@ -21,7 +21,7 @@ const products: Product[] = [
   {
     id: "1",
     name: "Mini Phone Holder",
-    price: 8,
+    price: 1,
     originalPrice: 15,
     rating: 4.5,
     reviews: 234,
@@ -32,11 +32,11 @@ const products: Product[] = [
   {
     id: "2",
     name: "Cable Organizer",
-    price: 5,
+    price: 2,
     originalPrice: 10,
     rating: 4.2,
     reviews: 156,
-    imageUrl: "https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300",
+    imageUrl: "https://images.unsplash.com/photo-1586953208448-b95a79798f07?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300",
     description: "Keep your cables neat and organized",
     inStock: true
   },
@@ -77,7 +77,7 @@ const products: Product[] = [
     price: 6,
     rating: 4.1,
     reviews: 203,
-    imageUrl: "https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300",
+    imageUrl: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300",
     description: "Bright LED light for your keys",
     inStock: true
   },
@@ -118,7 +118,7 @@ const products: Product[] = [
     originalPrice: 12,
     rating: 4.7,
     reviews: 167,
-    imageUrl: "https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300",
+    imageUrl: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300",
     description: "Strong neodymium magnets pack of 10",
     inStock: true
   }
